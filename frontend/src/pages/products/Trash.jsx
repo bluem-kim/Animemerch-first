@@ -68,7 +68,7 @@ export default function Trash() {
                 <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{r.deletedAt ? new Date(r.deletedAt).toLocaleString() : '—'}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{r.name}</td>
                 <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{r.category}</td>
-                <td className="px-4 py-3 text-sm">${r.price?.toFixed?.(2) ?? r.price}</td>
+                <td className="px-4 py-3 text-sm">₱{r.price?.toFixed?.(2) ?? r.price}</td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={()=> restore(r._id)} className="text-emerald-600 hover:text-emerald-800 text-sm">Restore</button>
                 </td>

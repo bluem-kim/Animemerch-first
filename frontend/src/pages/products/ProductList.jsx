@@ -158,7 +158,7 @@ export default function ProductList() {
                 <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{new Date(r.createdAt).toLocaleDateString()}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{r.name}</td>
                 <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{r.category}</td>
-                <td className="px-4 py-3 text-sm">${r.price?.toFixed?.(2) ?? r.price}</td>
+                <td className="px-4 py-3 text-sm">₱{r.price?.toFixed?.(2) ?? r.price}</td>
                 <td className="px-4 py-3">
                   <div className="flex -space-x-2">
                     {(r.photos || []).slice(0,3).map((p, idx) => (

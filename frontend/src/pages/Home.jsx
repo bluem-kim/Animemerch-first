@@ -80,7 +80,7 @@ export default function Home() {
             <div className="relative">
               <div className="aspect-[4/3] overflow-hidden rounded-xl bg-gray-100 shadow-lg dark:bg-gray-800">
                 <img
-                  src="https://images.unsplash.com/photo-1520975922299-5c8a2c6d7d88?q=80&w=1600&auto=format&fit=crop"
+                  src="/hero.jpg"
                   alt="Hero"
                   className="h-full w-full object-cover"
                 />
@@ -95,7 +95,7 @@ export default function Home() {
       <section id="categories" className="mx-auto max-w-7xl px-4 py-10">
         <div className="flex items-end justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Shop by Category</h2>
-          <Link to="/products" className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">View all</Link>
+          <Link to="/shop" className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">View all</Link>
         </div>
         {loading ? (
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -108,7 +108,7 @@ export default function Home() {
         ) : (
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {categories.map((c) => (
-              <Link key={c.name} to={`/products?category=${encodeURIComponent(c.name)}`} className="group relative block overflow-hidden rounded-lg">
+              <Link key={c.name} to={`/shop?category=${encodeURIComponent(c.name)}`} className="group relative block overflow-hidden rounded-lg">
                 <img src={c.img} alt={c.name} className="aspect-[4/3] w-full object-cover transition duration-300 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
                 <div className="absolute bottom-3 left-3 rounded bg-white/90 px-3 py-1 text-sm font-medium text-gray-900 backdrop-blur dark:bg-gray-900/80 dark:text-white">

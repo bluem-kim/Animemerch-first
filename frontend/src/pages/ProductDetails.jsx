@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../utils/api';
 import { useTGAlert } from '../components/TGAlert';
+import { useCart } from '../context/CartContext';
+import { getColorValue } from '../utils/colors';
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -9,6 +11,7 @@ export default function ProductDetails() {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(0);
   const alert = useTGAlert();
+  const cart = useCart();
 
   useEffect(() => {
     let activeReq = true;
@@ -35,6 +38,9 @@ export default function ProductDetails() {
   }, [product]);
 
   const addToCart = async () => {
+    if (!product) return;
+    const photoUrl = (product.photos && product.photos[0]?.url) || images[0];
+    cart.add({ product: product._id, name: product.name, price: product.price, photoUrl, quantity: 1 });
     await alert.show('Added to cart', { variant: 'success', timeout: 1600 });
   };
 
@@ -99,19 +105,33 @@ export default function ProductDetails() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{product.name}</h1>
           <div className="mt-1 flex items-center gap-3">
-            <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">${Number(product.price).toFixed(2)}</span>
+            <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">₱{Number(product.price).toFixed(2)}</span>
             <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">{product.category || 'General'}</span>
           </div>
+          {product.color && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Color:</span>
+              <div 
+                className="h-6 w-6 rounded-full border-2 border-gray-300 dark:border-gray-600" 
+                style={{ background: getColorValue(product.color) }}
+                title={product.color}
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{product.color}</span>
+            </div>
+          )}
           <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">{product.description || 'A well-crafted product to enhance your daily life.'}</p>
 
           <div className="mt-6 flex items-center gap-3">
             <button onClick={addToCart} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-5 py-2.5 text-white shadow hover:bg-indigo-700">Add to Cart</button>
-            <a href="#" className="inline-flex items-center justify-center rounded-md border border-gray-300 px-5 py-2.5 text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Wishlist</a>
+            <Link to={`/products/${product._id}/reviews`} className="inline-flex items-center justify-center rounded-md border border-gray-300 px-5 py-2.5 text-gray-800 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Review</Link>
           </div>
 
           <ul className="mt-8 grid gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-green-500" /> In stock</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> Free shipping over $50</li>
+            <li className="flex items-center gap-2">
+              <span className={`h-1.5 w-1.5 rounded-full ${product.stock > 0 ? 'bg-green-500' : 'bg-red-500'}`} /> 
+              {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+            </li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> Free shipping over ₱50</li>
           </ul>
         </div>
       </div>

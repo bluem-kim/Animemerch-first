@@ -23,6 +23,7 @@ export default function ProductEdit() {
     if (values.price != null) fd.append('price', values.price);
     if (values.category != null) fd.append('category', values.category);
     if (values.description != null) fd.append('description', values.description);
+    if (values.color != null) fd.append('color', values.color);
     if (values.keepPhotoIds) fd.append('keepPhotoIds', JSON.stringify(values.keepPhotoIds));
     (values.photos || []).forEach(f => fd.append('photos', f));
     await api.put(`/products/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });

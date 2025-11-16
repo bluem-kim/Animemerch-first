@@ -11,6 +11,7 @@ export default function ProductCreate() {
     fd.append('price', values.price);
     fd.append('category', values.category);
     fd.append('description', values.description || '');
+    if (values.color) fd.append('color', values.color);
     (values.photos || []).forEach(f => fd.append('photos', f));
     await api.post('/products', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
     navigate('/products');

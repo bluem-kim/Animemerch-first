@@ -2,18 +2,26 @@ import { useEffect, useState } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { api, toFormData } from '../../utils/api';
+import { Box, TextField, Select, MenuItem, FormControl, InputLabel, FormHelperText, Button, Card, CardContent, Typography, Grid, IconButton, Checkbox, InputAdornment } from '@mui/material';
+import { Delete, CloudUpload } from '@mui/icons-material';
 
 const schema = Yup.object({
   name: Yup.string().required('Required'),
   price: Yup.number().typeError('Must be a number').min(0, '>= 0').required('Required'),
   category: Yup.string().required('Required'),
-  description: Yup.string().max(2000, 'Too long')
+  color: Yup.string().max(40, 'Too long'),
+  description: Yup.string().max(2000, 'Too long'),
+  stock: Yup.number().typeError('Must be a number').min(0, '>= 0').required('Required')
 });
 
 export default function ProductForm({ initialValues, onSubmit, submitLabel = 'Save', isEdit = false }) {
   const [existingPhotos, setExistingPhotos] = useState([]); // { url, public_id }
   const [keepPhotoIds, setKeepPhotoIds] = useState([]); // public_id[] to keep
   const [newPreviews, setNewPreviews] = useState([]); // previews for newly selected files
+  const [selectionMode, setSelectionMode] = useState(false); // bulk selection toggle
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState([]); // ids chosen for bulk removal
+  const [categories, setCategories] = useState([]); // available categories
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   useEffect(() => {
     const init = initialValues?.photos || [];
@@ -22,6 +30,21 @@ export default function ProductForm({ initialValues, onSubmit, submitLabel = 'Sa
       setKeepPhotoIds(init.map(p => p.public_id));
     }
   }, [isEdit, initialValues]);
+
+  useEffect(() => {
+    // Fetch categories
+    (async () => {
+      try {
+        const { data } = await api.get('/categories', { params: { activeOnly: true } });
+        setCategories(data.categories || []);
+      } catch (e) {
+        console.error('Failed to fetch categories:', e);
+        setCategories([]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    })();
+  }, []);
 
   const handleFilesChange = (files, setFieldValue) => {
     const arr = Array.from(files || []);
@@ -34,99 +57,321 @@ export default function ProductForm({ initialValues, onSubmit, submitLabel = 'Sa
     setKeepPhotoIds(prev => prev.includes(public_id) ? prev.filter(id => id !== public_id) : [...prev, public_id]);
   };
 
+  const toggleSelected = (public_id) => {
+    setSelectedPhotoIds(prev => prev.includes(public_id) ? prev.filter(id => id !== public_id) : [...prev, public_id]);
+  };
+
+  const removeSelectedBulk = () => {
+    if (!selectedPhotoIds.length) return;
+    setKeepPhotoIds(prev => prev.filter(id => !selectedPhotoIds.includes(id)));
+    setSelectedPhotoIds([]);
+    setSelectionMode(false);
+  };
+
+  const removeAllExisting = () => {
+    if (!existingPhotos.length) return;
+    setKeepPhotoIds([]);
+    setSelectedPhotoIds([]);
+    setSelectionMode(false);
+  };
+
   return (
-    <div className="rounded-sm border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-      <Formik
-        initialValues={{ name: '', price: '', category: '', description: '', photos: [], ...initialValues }}
-        validationSchema={schema}
-        onSubmit={async (values, helpers) => {
-          try {
-            await onSubmit({ ...values, keepPhotoIds });
-          } finally {
-            helpers.setSubmitting(false);
-          }
-        }}
-      >
-        {({ isSubmitting, setFieldValue }) => (
-          <Form className="space-y-4">
-            {/* Name */}
-            <div className="rounded-sm border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Name</label>
-              <Field name="name" type="text" placeholder="Enter product name" className="mt-2 block w-full" />
-              <div className="text-sm text-red-600 mt-1"><ErrorMessage name="name" /></div>
-            </div>
-
-            {/* Price & Category */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-sm border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Price</label>
-                <Field name="price" type="number" step="0.01" className="mt-2 block w-full" />
-                <div className="text-sm text-red-600 mt-1"><ErrorMessage name="price" /></div>
-              </div>
-              <div className="rounded-sm border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Category</label>
-                <Field name="category" type="text" placeholder="e.g. Electronics" className="mt-2 block w-full" />
-                <div className="text-sm text-red-600 mt-1"><ErrorMessage name="category" /></div>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="rounded-sm border border-stroke bg-white p-4 dark:border-strokedark dark:border-gray-700 dark:bg-boxdark dark:bg-gray-900">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Description</label>
-              <Field name="description" as="textarea" rows={4} className="mt-2 block w-full" />
-              <div className="text-sm text-red-600 mt-1"><ErrorMessage name="description" /></div>
-            </div>
-
-            {/* Photos */}
-            <div className="rounded-sm border-2 border-dashed border-gray-300 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Photos</label>
-              {/* Existing photos (edit mode) */}
-              {isEdit && (
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-                  {existingPhotos.length === 0 && (
-                    <span className="text-sm text-gray-600 dark:text-gray-300">No existing photos</span>
+    <Card>
+      <CardContent>
+        <Formik
+          initialValues={{ name: '', price: '', category: '', color: '', description: '', stock: 0, photos: [], ...initialValues }}
+          validationSchema={schema}
+          onSubmit={async (values, helpers) => {
+            try {
+              await onSubmit({ ...values, keepPhotoIds });
+            } finally {
+              helpers.setSubmitting(false);
+            }
+          }}
+        >
+          {({ isSubmitting, setFieldValue, errors, touched }) => (
+            <Form>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Name */}
+                <Field name="name">
+                  {({ field, meta }) => (
+                    <TextField
+                      {...field}
+                      label="Name"
+                      placeholder="Enter product name"
+                      fullWidth
+                      error={meta.touched && !!meta.error}
+                      helperText={meta.touched && meta.error}
+                    />
                   )}
-                  {existingPhotos.map((p) => {
-                    const kept = keepPhotoIds.includes(p.public_id);
-                    return (
-                      <div key={p.public_id} className={`relative h-20 w-20 rounded border ${kept ? 'border-gray-200 dark:border-gray-700' : 'border-red-400'} overflow-hidden`}>
-                        <img src={p.url} alt={p.public_id} className={`h-full w-full object-cover ${kept ? '' : 'opacity-40'}`} />
-                        <button type="button" onClick={() => toggleRemoveExisting(p.public_id)} className={`absolute top-1 right-1 rounded px-1 text-xs ${kept ? 'bg-gray-800/70 text-white' : 'bg-green-600 text-white'}`} title={kept ? 'Remove from product' : 'Keep photo'}>
-                          {kept ? '×' : '↺'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                </Field>
 
-              <div className="mt-2 flex items-center gap-3">
-                <label htmlFor="photosInput" className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5V8.25A2.25 2.25 0 0 1 5.25 6h2.086a2.25 2.25 0 0 1 1.59.659l.828.828A2.25 2.25 0 0 0 11.343 8.25H18.75A2.25 2.25 0 0 1 21 10.5v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 16.5Z"/>
-                  </svg>
-                  Choose files
-                </label>
-                <input id="photosInput" type="file" name="photos" multiple accept="image/*" onChange={(e)=> handleFilesChange(e.target.files, setFieldValue)} className="sr-only" />
-                <span className="text-sm text-gray-600 dark:text-gray-300">{newPreviews.length ? `${newPreviews.length} selected` : 'No new files selected'}</span>
-              </div>
-              {!!newPreviews.length && (
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
-                  {newPreviews.map((p, idx) => (
-                    <img key={idx} src={p.url} alt={p.name} className="h-20 w-20 object-cover rounded border border-gray-200 dark:border-gray-700" />
-                  ))}
-                </div>
-              )}
-            </div>
+                {/* Price, Stock, Category & Color */}
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={3}>
+                    <Field name="price">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Price"
+                          type="number"
+                          inputProps={{ 
+                            step: '0.01',
+                            min: '0'
+                          }}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start" sx={{ pointerEvents: 'none', color: 'text.secondary' }}>
+                                ₱
+                              </InputAdornment>
+                            )
+                          }}
+                          fullWidth
+                          error={meta.touched && !!meta.error}
+                          helperText={meta.touched && meta.error}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                  <Grid item xs={12} sm={2}>
+                    <Field name="stock">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Stock"
+                          type="number"
+                          inputProps={{ 
+                            step: '1',
+                            min: '0'
+                          }}
+                          fullWidth
+                          error={meta.touched && !!meta.error}
+                          helperText={meta.touched && meta.error}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                  <Grid item xs={12} sm={5}>
+                    <Field name="category">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          select
+                          label="Category"
+                          fullWidth
+                          error={meta.touched && !!meta.error}
+                          helperText={meta.touched && meta.error}
+                          InputLabelProps={{ shrink: true }}
+                          SelectProps={{
+                            displayEmpty: true,
+                            renderValue: (selected) => selected ? selected : (
+                              <Box component="span" sx={{ color: 'text.secondary' }}>Select a category</Box>
+                            )
+                          }}
+                        >
+                          <MenuItem value="">
+                            <em>{loadingCategories ? 'Loading categories...' : 'Select a category'}</em>
+                          </MenuItem>
+                          {categories
+                            .filter(cat => cat.isActive !== false)
+                            .map((cat) => (
+                              <MenuItem key={cat._id} value={cat.name}>
+                                {cat.name}
+                              </MenuItem>
+                            ))}
+                        </TextField>
+                      )}
+                    </Field>
+                  </Grid>
+                  <Grid item xs={12} sm={2}>
+                    <Field name="color">
+                      {({ field, meta }) => (
+                        <TextField
+                          {...field}
+                          label="Color"
+                          placeholder="e.g. Red"
+                          fullWidth
+                          error={meta.touched && !!meta.error}
+                          helperText={meta.touched && meta.error}
+                        />
+                      )}
+                    </Field>
+                  </Grid>
+                </Grid>
 
-            <div className="pt-2">
-              <button type="submit" disabled={isSubmitting} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-white shadow-default hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400">
-                {isSubmitting ? 'Saving…' : submitLabel}
-              </button>
-            </div>
-          </Form>
-        )}
-      </Formik>
-    </div>
+                {/* Description */}
+                <Field name="description">
+                  {({ field, meta }) => (
+                    <TextField
+                      {...field}
+                      label="Description"
+                      multiline
+                      rows={4}
+                      fullWidth
+                      error={meta.touched && !!meta.error}
+                      helperText={meta.touched && meta.error}
+                    />
+                  )}
+                </Field>
+
+                {/* Photos */}
+                <Box sx={{ border: '2px dashed', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>Photos</Typography>
+                  {isEdit && (
+                    <Box>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setSelectionMode(m => !m)}
+                          disabled={!existingPhotos.length}
+                        >
+                          {selectionMode ? 'Cancel Bulk' : 'Bulk Select'}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="error"
+                          onClick={removeSelectedBulk}
+                          disabled={!selectionMode || !selectedPhotoIds.length}
+                        >
+                          Remove Selected ({selectedPhotoIds.length})
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="error"
+                          onClick={removeAllExisting}
+                          disabled={!existingPhotos.length}
+                        >
+                          Remove All
+                        </Button>
+                        {!!selectedPhotoIds.length && selectionMode && (
+                          <Typography variant="caption" sx={{ alignSelf: 'center', color: 'text.secondary' }}>
+                            Selected {selectedPhotoIds.length}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 1.5 }}>
+                        {existingPhotos.length === 0 && (
+                          <Typography variant="body2" color="text.secondary">No existing photos</Typography>
+                        )}
+                        {existingPhotos.map((p) => {
+                          const kept = keepPhotoIds.includes(p.public_id);
+                          const selected = selectedPhotoIds.includes(p.public_id);
+                          return (
+                            <Box
+                              key={p.public_id}
+                              sx={{
+                                position: 'relative',
+                                height: 80,
+                                width: 80,
+                                borderRadius: 1,
+                                overflow: 'hidden',
+                                border: 1,
+                                borderColor: kept ? 'divider' : 'error.main',
+                                ...(selectionMode && selected && { boxShadow: theme => `0 0 0 2px ${theme.palette.primary.main}` })
+                              }}
+                            >
+                              <Box
+                                component="img"
+                                src={p.url}
+                                alt={p.public_id}
+                                sx={{
+                                  height: '100%',
+                                  width: '100%',
+                                  objectFit: 'cover',
+                                  opacity: kept ? 1 : 0.4,
+                                  cursor: selectionMode ? 'pointer' : 'default'
+                                }}
+                                onClick={() => selectionMode ? toggleSelected(p.public_id) : toggleRemoveExisting(p.public_id)}
+                              />
+                              {!selectionMode && (
+                                <Button
+                                  size="small"
+                                  onClick={() => toggleRemoveExisting(p.public_id)}
+                                  sx={{
+                                    position: 'absolute',
+                                    top: 4,
+                                    right: 4,
+                                    minWidth: 24,
+                                    height: 24,
+                                    p: 0,
+                                    bgcolor: kept ? 'rgba(0,0,0,0.7)' : 'success.main',
+                                    color: 'white',
+                                    '&:hover': { bgcolor: kept ? 'rgba(0,0,0,0.85)' : 'success.dark' }
+                                  }}
+                                  title={kept ? 'Remove from product' : 'Keep photo'}
+                                >
+                                  {kept ? '×' : '↺'}
+                                </Button>
+                              )}
+                              {selectionMode && (
+                                <Box sx={{ position: 'absolute', top: 4, left: 4 }}>
+                                  <Checkbox
+                                    checked={selected}
+                                    onChange={() => toggleSelected(p.public_id)}
+                                    size="small"
+                                    sx={{ p: 0, color: 'white', '&.Mui-checked': { color: 'primary.main' } }}
+                                  />
+                                </Box>
+                              )}
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  )}
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<CloudUpload />}
+                    >
+                      Choose files
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        hidden
+                        onChange={(e)=> handleFilesChange(e.target.files, setFieldValue)}
+                      />
+                    </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      {newPreviews.length ? `${newPreviews.length} selected` : 'No new files selected'}
+                    </Typography>
+                  </Box>
+                  {!!newPreviews.length && (
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 1.5, mt: 2 }}>
+                      {newPreviews.map((p, idx) => (
+                        <Box
+                          key={idx}
+                          component="img"
+                          src={p.url}
+                          alt={p.name}
+                          sx={{ height: 80, width: 80, objectFit: 'cover', borderRadius: 1, border: 1, borderColor: 'divider' }}
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+
+                <Box sx={{ pt: 1 }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={isSubmitting}
+                    size="large"
+                  >
+                    {isSubmitting ? 'Saving…' : submitLabel}
+                  </Button>
+                </Box>
+              </Box>
+            </Form>
+          )}
+        </Formik>
+      </CardContent>
+    </Card>
   );
 }

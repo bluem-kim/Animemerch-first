@@ -12,6 +12,10 @@ const transactionSchema = new mongoose.Schema({
   items: { type: [itemSchema], validate: v => v.length > 0 },
   totalAmount: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ['pending', 'paid', 'shipped', 'completed', 'cancelled'], default: 'pending' },
+  paymentMethod: { type: String, enum: ['cod'], default: 'cod' },
+  shippingAddress: { type: String },
+  contactPhone: { type: String },
+  notes: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 

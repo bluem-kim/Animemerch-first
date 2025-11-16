@@ -8,6 +8,9 @@ const connectDatabase = require('../config/database');
 require('../config/cloudinary');
 const productRoutes = require('../routes/productRoutes');
 const reviewRoutes = require('../routes/reviewRoutes');
+const userRoutes = require('../routes/userRoutes');
+const categoryRoutes = require('../routes/categoryRoutes');
+const transactionRoutes = require('../routes/transactionRoutes');
 
 const app = express();
 
@@ -20,6 +23,9 @@ app.get('/', (req, res) => {
 
 app.use('/api', productRoutes);
 app.use('/api', reviewRoutes);
+app.use('/api', userRoutes);
+app.use('/api', categoryRoutes);
+app.use('/api', transactionRoutes);
 
 const PORT = process.env.PORT || 5000;
 

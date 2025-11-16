@@ -3,9 +3,13 @@ const bcrypt = require('bcryptjs');
 const validator = require('validator');
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
+  username: { type: String, required: true, trim: true, minlength: 2 },
   email: { type: String, required: true, unique: true, lowercase: true, validate: [validator.isEmail, 'Invalid email'] },
   password: { type: String, required: true, minlength: 6, select: false },
+  photo: {
+    url: { type: String },
+    public_id: { type: String }
+  },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   createdAt: { type: Date, default: Date.now }
 });

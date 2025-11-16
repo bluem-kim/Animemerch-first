@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const Category = require('../models/Category');
 const cloudinary = require('../config/cloudinary');
 
 const uploadBufferToCloudinary = (buffer) =>
@@ -13,12 +14,12 @@ const uploadBufferToCloudinary = (buffer) =>
 // POST /products
 exports.createProduct = async (req, res) => {
   try {
-    const { name, price, category, description } = req.body;
+    const { name, price, category, description, color } = req.body;
     if (!name || !price || !category) {
       return res.status(400).json({ message: 'name, price, category required' });
     }
     const uploads = req.files?.length ? await Promise.all(req.files.map(f => uploadBufferToCloudinary(f.buffer))) : [];
-    const product = await Product.create({ name, price, category, description, photos: uploads });
+    const product = await Product.create({ name, price, category, description, color, photos: uploads });
     res.status(201).json(product);
   } catch (err) {
     console.error(err);
@@ -26,19 +27,39 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// GET /products?search=&category=&minPrice=&maxPrice=&page=&limit=
+// GET /products?search=&category=&minPrice=&maxPrice=&page=&limit=&activeCategoriesOnly=
 exports.getProducts = async (req, res) => {
   try {
-    const { search, category, minPrice, maxPrice, page = 1, limit = 10, deleted } = req.query;
+    const { search, category, color, minPrice, maxPrice, page = 1, limit = 10, deleted, activeCategoriesOnly } = req.query;
     const query = {};
     if (deleted === 'true') query.deleted = true; else query.deleted = false;
     if (search) query.name = { $regex: search, $options: 'i' };
     if (category) query.category = category;
+    if (color) query.color = color;
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
+    // Exclude products from inactive categories when requested (user/shop side)
+    if (activeCategoriesOnly === 'true') {
+      const activeCategoryNames = await Category.find({ isActive: true }).distinct('name');
+      if (Array.isArray(activeCategoryNames) && activeCategoryNames.length) {
+        if (query.category) {
+          // If a specific category is requested, ensure it's active; otherwise, force no results
+          if (!activeCategoryNames.includes(query.category)) {
+            // Set an impossible condition to return 0 results
+            query.category = '__INACTIVE__SHOULD_RETURN_NONE__';
+          }
+        } else {
+          query.category = { $in: activeCategoryNames };
+        }
+      } else {
+        // No active categories -> return empty
+        query.category = '__NO_ACTIVE_CATEGORIES__';
+      }
+    }
+    
     const skip = (Number(page) - 1) * Number(limit);
     const [items, total] = await Promise.all([
       Product.find(query).skip(skip).limit(Number(limit)).sort({ createdAt: -1 }),
@@ -67,7 +88,7 @@ exports.getProductById = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, price, category, description } = req.body;
+    const { name, price, category, description, color } = req.body;
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Not found' });
@@ -76,6 +97,7 @@ exports.updateProduct = async (req, res) => {
     if (price !== undefined) product.price = price;
     if (category !== undefined) product.category = category;
     if (description !== undefined) product.description = description;
+    if (color !== undefined) product.color = color;
 
     // Parse keepPhotoIds from body (can be JSON string or array)
     let keepPhotoIds = undefined;
